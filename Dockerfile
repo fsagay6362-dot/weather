@@ -1,6 +1,6 @@
 FROM php:8.2-fpm
 
-# Zainstaluj systemowe zależności
+# Systemowe zależności
 RUN apt-get update && apt-get install -y \
     git \
     zip \
@@ -9,24 +9,27 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     libxml2-dev \
     libzip-dev \
+    nginx \
+    supervisor \
     && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
 
-# Skopiuj Composer
+# Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-# Skopiuj pliki projektu
+# Skopiuj projekt
 COPY . .
 
 # Instalacja zależności PHP
 RUN composer install --no-dev --optimize-autoloader
 
-# Instalacja Nginx
-RUN apt-get update && apt-get install -y nginx && rm -rf /var/lib/apt/lists/*
-
+# Skopiuj konfigurację Nginx i Supervisora
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
+# Wystaw port
 EXPOSE 8080
 
-CMD service php-fpm start && nginx -g "daemon off;"
+# Uruchom supervisor (który odpali php-fpm i nginx)
+CMD ["/usr/bin/supervisord", "-n"]
